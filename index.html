@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -611,23 +612,9 @@
             font-size: 14px;
         }
 
-        /* 倒數計時顯示 */
-        .slot-cell.reserved .countdown {
-            position: absolute;
-            bottom: 2px;
-            right: 2px;
-            background: rgba(0,0,0,0.7);
-            color: white;
-            font-size: 9px;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-weight: 600;
-            line-height: 1;
-        }
-
         /* Hover 顯示保留資訊 */
         .slot-cell.reserved[data-student]:hover::before {
-            content: '保留中: ' attr(data-student) '\A剩餘: ' attr(data-remaining);
+            content: '保留中: ' attr(data-student);
             position: absolute;
             bottom: calc(100% + 4px);
             left: 50%;
@@ -637,7 +624,7 @@
             padding: 8px 12px;
             border-radius: 6px;
             font-size: 11px;
-            white-space: pre;
+            white-space: nowrap;
             z-index: 100;
             text-align: center;
             line-height: 1.4;
@@ -1236,7 +1223,7 @@
             <div class="stats-grid">
                 <div class="stat-card green">
                     <div class="stat-icon">📅</div>
-                    <div class="stat-label">兩週總計</div>
+                    <div class="stat-label">總計時段</div>
                     <div class="stat-value" id="totalSelected">0</div>
                 </div>
                 <div class="stat-card pink">
@@ -1246,7 +1233,7 @@
                 </div>
                 <div class="stat-card yellow">
                     <div class="stat-icon">📊</div>
-                    <div class="stat-label">總時段</div>
+                    <div class="stat-label">週時段數</div>
                     <div class="stat-value" id="totalCount">126</div>
                 </div>
             </div>
@@ -1329,7 +1316,7 @@
 
             <!-- 操作按鈕 -->
             <div class="action-buttons">
-                <button class="btn btn-primary" onclick="showSaveModal()">送出排程(兩週內所有時段)</button>
+                <button class="btn btn-primary" onclick="showSaveModal()">送出排程(所有已選時段)</button>
             </div>
         </div>
     </div>
@@ -1337,7 +1324,7 @@
     <!-- 儲存確認 Modal -->
     <div class="modal-overlay hidden" id="saveModalOverlay">
         <div class="modal">
-            <div class="modal-header">💾 確認送出排程(兩週內所有時段)</div>
+            <div class="modal-header">💾 確認送出排程</div>
             <div class="modal-content">
                 <div class="modal-info">
                     <div class="modal-info-row">
@@ -1349,7 +1336,7 @@
                         <span class="modal-value" id="modalCoachType">-</span>
                     </div>
                     <div class="modal-info-row">
-                        <span class="modal-label">兩週總時段</span>
+                        <span class="modal-label">總時段</span>
                         <span class="modal-value" id="modalTotalCount">0</span>
                     </div>
                 </div>
@@ -1453,7 +1440,7 @@
                 updateWeekDisplay();
                 generateCalendar();
 
-                // 從雲端載入最新資料
+                // 從雲端載入最新資料 - 移除兩週限制
                 console.log('☁️ 開始載入雲端排程...');
                 await loadScheduleFromCloud();
                 
@@ -1481,15 +1468,18 @@
             try {
                 console.log('📥 正在從雲端載入排程...');
                 
-                // 計算兩週範圍
+                // 計算載入範圍:當前週往前2週,往後4週 (共6週)
+                const startDate = new Date(currentWeekStart);
+                startDate.setDate(startDate.getDate() - 14); // 往前2週
+                
                 const endDate = new Date(currentWeekStart);
-                endDate.setDate(endDate.getDate() + 14);
+                endDate.setDate(endDate.getDate() + 28); // 往後4週
                 
                 const payload = {
                     action: 'load',
                     userName: currentTeacher,
                     coachType: currentTeacherType,
-                    startDate: formatDateISO(currentWeekStart),
+                    startDate: formatDateISO(startDate),
                     endDate: formatDateISO(endDate)
                 };
                 
@@ -1687,7 +1677,6 @@
                 // 清除所有狀態
                 cell.classList.remove('selected', 'booked', 'reserved');
                 cell.removeAttribute('data-student');
-                cell.removeAttribute('data-remaining');
                 cell.innerHTML = '';
                 
                 // 檢查是否為已預約
@@ -1739,7 +1728,6 @@
                     cell.classList.remove('reserved');
                     cell.classList.add('selected');
                     cell.removeAttribute('data-student');
-                    cell.removeAttribute('data-remaining');
                     cell.innerHTML = '';
                     
                     // 從 reservedSlots 移除
@@ -1763,22 +1751,6 @@
                     
                     return true; // 停止計時
                 }
-                
-                // 計算剩餘時間
-                const minutes = Math.floor(diff / 60000);
-                const seconds = Math.floor((diff % 60000) / 1000);
-                
-                // 更新顯示
-                cell.setAttribute('data-remaining', `${minutes}分${seconds}秒`);
-                
-                // 在格子上顯示剩餘分鐘數
-                let countdownDiv = cell.querySelector('.countdown');
-                if (!countdownDiv) {
-                    countdownDiv = document.createElement('div');
-                    countdownDiv.className = 'countdown';
-                    cell.appendChild(countdownDiv);
-                }
-                countdownDiv.textContent = `${minutes}m`;
                 
                 return false;
             };
@@ -2006,8 +1978,7 @@
             // 如果是保留中,不允許操作
             if (element.classList.contains('reserved')) {
                 const studentName = element.getAttribute('data-student');
-                const remaining = element.getAttribute('data-remaining');
-                showToast(`⏳ 此時段由「${studentName || '學員'}」保留中${remaining ? ',剩餘 ' + remaining : ''}`);
+                showToast(`⏳ 此時段由「${studentName || '學員'}」保留中`);
                 return;
             }
             
@@ -2032,7 +2003,7 @@
         }
 
         function updateStats() {
-            // 計算兩週內所有「可預約」的時段
+            // 計算所有「可預約」的時段 - 移除兩週限制
             let totalSelected = 0;
             Object.keys(selectedSlots).forEach(weekKey => {
                 totalSelected += (selectedSlots[weekKey] || []).length;
@@ -2051,7 +2022,7 @@
         function compareSchedules() {
             const allSchedules = [];
             
-            // 收集兩週內所有「可預約」的時段
+            // 收集所有「可預約」的時段 - 移除兩週限制
             Object.keys(selectedSlots).forEach(weekKey => {
                 const weekSlots = selectedSlots[weekKey] || [];
                 const weekDate = new Date(weekKey);
